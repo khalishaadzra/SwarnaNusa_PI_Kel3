@@ -5,6 +5,7 @@ import numpy as np
 from scipy import sparse
 import pickle
 from pathlib import Path
+from evaluation import evaluate
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -82,3 +83,8 @@ def home():
 def search_api(q: str, mode: str = "combined", top_k: int = 10):
     results = search_full(q, mode, top_k)
     return {"query": q, "mode": mode, "results": results}
+
+@app.get("/evaluate")
+def evaluate_api(q: str, top_k: int = 10):
+    result = evaluate(q, top_k)
+    return result
