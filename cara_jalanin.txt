@@ -1,0 +1,21 @@
+# Preprocess Data
+python scripts/preprocessing.py
+
+# Build TF-IDF Index
+python scripts/build_index.py
+
+# Cek Hasil Pencarian Manual
+python search_engine.py
+
+# Jalankan Evaluasi
+python evaluation.py
+
+# Jalankan FastAPI
+uvicorn app:app --reload
+
+# Test API (ada dua cara yg bisa dipake)
+## Browser
+http://127.0.0.1:8000/search?q=rebana
+
+## Swagger (FastAPI)
+http://127.0.0.1:8000/docs
