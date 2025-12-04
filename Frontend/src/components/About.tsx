@@ -163,21 +163,6 @@ const About: React.FC = () => {
                   </div>
                 );
               })}
-
-              {/* <div className="absolute -bottom-16 right-0 flex gap-3 z-30">
-                <button
-                  onClick={prevSlide}
-                  className="group p-3 rounded-full border border-swarna-light/20 text-swarna-light hover:bg-swarna-gold hover:text-swarna-primary transition-all"
-                >
-                  <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
-                </button>
-                <button
-                  onClick={nextSlide}
-                  className="group p-3 rounded-full border border-swarna-light/20 text-swarna-light hover:bg-swarna-gold hover:text-swarna-primary transition-all"
-                >
-                  <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              </div> */}
             </div>
           </div>
 
