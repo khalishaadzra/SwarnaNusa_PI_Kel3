@@ -29,28 +29,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- SEARCH FUNCTION ---
-def search_tfidf(query, top_k=10):
-    q_vec = VECTORIZER.transform([query])
-    scores = (X_TFIDF @ q_vec.T).toarray().ravel()
-    idx = np.argsort(scores)[::-1][:top_k]
-    results = []
+# --- JACCARD ---
+def jaccard_similarity(q_tokens, d_tokens):
+    set_q = set(q_tokens)
+    set_d = set(d_tokens)
+    if not set_q or not set_d:
+        return 0
+    return len(set_q & set_d) / len(set_q | set_d)
 
-    for i in idx:
+# --- FULL SEARCH FUNCTION (TF-IDF + Jaccard + Combined) ---
+def search_full(query, mode="combined", top_k=10):
+
+    # TF-IDF vector untuk query
+    q_vec = VECTORIZER.transform([query])
+    tfidf_scores = (X_TFIDF @ q_vec.T).toarray().ravel()
+
+    # Token query
+    q_tokens = query.lower().split()
+
+    results = []
+    for i, doc in enumerate(DOCS):
+        d_tokens = doc["tokens"]  # dari preprocessed_dataset.json
+        jaccard_score = jaccard_similarity(q_tokens, d_tokens)
+        tfidf_score = float(tfidf_scores[i])
+
+        # combined
+        combined_score = 0.7 * tfidf_score + 0.3 * jaccard_score
+
         results.append({
-            "score": float(scores[i]),
-            "document": DOCS[i]
+            "document": doc,
+            "tfidf_score": tfidf_score,
+            "jaccard_score": jaccard_score,
+            "combined_score": combined_score
         })
 
-    return results
+    # Sorting berdasarkan mode
+    if mode == "tfidf":
+        results.sort(key=lambda x: x["tfidf_score"], reverse=True)
+    elif mode == "jaccard":
+        results.sort(key=lambda x: x["jaccard_score"], reverse=True)
+    else:  # default combined
+        results.sort(key=lambda x: x["combined_score"], reverse=True)
 
-# --- API ROUTES ---
+    return results[:top_k]
 
+# --- ROUTES ---
 @app.get("/")
 def home():
     return {"status": "OK", "message": "Search API running"}
 
 @app.get("/search")
-def search_api(q: str, top_k: int = 10):
-    results = search_tfidf(q, top_k)
-    return {"query": q, "results": results}
+def search_api(q: str, mode: str = "combined", top_k: int = 10):
+    results = search_full(q, mode, top_k)
+    return {"query": q, "mode": mode, "results": results}
