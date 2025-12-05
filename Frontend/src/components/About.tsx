@@ -33,7 +33,7 @@ const teamMembers = [
   {
     id: 2,
     name: "Firah Maulida",
-    role: "Data Collection & Documentation",
+    role: "Data Scrapper & Documentation",
     image: "/team2.png",
   },
   {
@@ -171,12 +171,10 @@ const About: React.FC = () => {
             <div className="relative w-[400px] h-full flex items-end justify-center overflow-visible">
               {/* LORONG GELAP */}
               <div className="absolute inset-x-10 bottom-10 top-2 bg-gradient-to-t from-black via-[#2C1E16] to-transparent rounded-t-[200px] opacity-50 blur-md z-0"></div>
-
-              {/* --- ORANG --- */}
               {teamMembers.map((member, idx) => (
                 <div
                   key={member.id}
-                  className={`absolute bottom-20 w-[300px] transition-all duration-700 flex flex-col items-center z-10 ${
+                  className={`absolute bottom-12 w-[350px] transition-all duration-700 flex flex-col items-center z-10 ${
                     idx === memberIndex
                       ? "opacity-100 scale-100"
                       : "opacity-0 scale-95"
@@ -185,7 +183,8 @@ const About: React.FC = () => {
                   <img
                     src={member.image}
                     alt={member.name}
-                    className="w-full h-auto drop-shadow-2xl"
+                    className="w-full h-auto drop-shadow-2xl 
+                 [mask-image:linear-gradient(to_bottom,white_75%,transparent_100%)]"
                   />
 
                   <div

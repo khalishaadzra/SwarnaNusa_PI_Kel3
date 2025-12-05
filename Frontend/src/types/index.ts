@@ -1,14 +1,28 @@
 // src/types/index.ts
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from 'lucide-react';
 
 export interface SearchResult {
-  id: number;
-  title: string;
-  snippet: string;
-  category: "tarian" | "alat_musik" | "pakaian" | "lainnya"; // Updated category
+  id: number | string; // Bisa angka atau string
+  // Support format lama & baru
+  title?: string;
+  judul?: string;
+  
+  snippet?: string;
+  deskripsi?: string;
+  
+  image?: string;
+  gambar?: string;
+  
+  category: string; 
+  kategori?: string;
+
   score_tfidf: number;
   score_jaccard: number;
-  image: string;
+  
+  // Data tambahan kamu
+  asal_daerah?: string;
+  cara_main?: string;
+  link?: string;
 }
 
 export interface CategoryOption {

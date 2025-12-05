@@ -1,6 +1,14 @@
-// src/components/SearchSection.tsx
-import React, { useState } from "react";
-import { Search, Sparkles, Layers, Calculator, BarChart3 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  Search,
+  Sparkles,
+  Layers,
+  Calculator,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { SearchResult } from "../types";
 import { mockDatabase } from "../data/mockData";
 
@@ -10,32 +18,106 @@ const algoTabs = [
   { id: "jaccard", label: "Jaccard", icon: Calculator },
 ];
 
+const ITEMS_PER_PAGE = 4;
+
 const SearchSection: React.FC = () => {
-  const [query, setQuery] = useState<string>("");
-  const [activeAlgoTab, setActiveAlgoTab] = useState<string>("all");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const navigate = useNavigate();
+
+  // --- 1. STATE INITIALIZATION (BACA DARI STORAGE DULUAN) ---
+  const [query, setQuery] = useState<string>(() => {
+    return sessionStorage.getItem("swarna_query") || "";
+  });
+
+  const [results, setResults] = useState<SearchResult[]>(() => {
+    const saved = sessionStorage.getItem("swarna_results");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [hasSearched, setHasSearched] = useState<boolean>(() => {
+    return sessionStorage.getItem("swarna_hasSearched") === "true";
+  });
+
+  const [activeAlgoTab, setActiveAlgoTab] = useState<string>(() => {
+    return sessionStorage.getItem("swarna_tab") || "all";
+  });
+
+  const [pageIndex, setPageIndex] = useState<number>(() => {
+    const page = sessionStorage.getItem("swarna_page");
+    return page ? parseInt(page) : 0;
+  });
+
   const [isSearching, setIsSearching] = useState<boolean>(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  // --- 2. EFFECT UNTUK MENYIMPAN STATE (JALAN SAAT DATA BERUBAH) ---
+  useEffect(() => {
+    sessionStorage.setItem("swarna_query", query);
+    sessionStorage.setItem("swarna_results", JSON.stringify(results));
+    sessionStorage.setItem("swarna_hasSearched", String(hasSearched));
+    sessionStorage.setItem("swarna_tab", activeAlgoTab);
+    sessionStorage.setItem("swarna_page", String(pageIndex));
+  }, [query, results, hasSearched, activeAlgoTab, pageIndex]);
+
+  // --- 3. HANDLE SEARCH (FILTER DENGAN SUPPORT JUDUL & TITLE) ---
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query) return;
 
     setIsSearching(true);
-    setHasSearched(false);
+    setPageIndex(0);
 
-    setTimeout(() => {
-      const allMatches = mockDatabase.filter(
-        (item) =>
-          item.title.toLowerCase().includes(query.toLowerCase()) ||
-          item.snippet.toLowerCase().includes(query.toLowerCase())
+    try {
+      // pilih algoritma berdasarkan tab
+      let algo = activeAlgoTab;
+      if (algo === "all") algo = "combined";
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/search?q=${encodeURIComponent(
+          query
+        )}&mode=${algo}`
       );
 
-      setResults(allMatches);
+      const data = await response.json();
+
+      // backend mengembalikan daftar hasil
+      setResults(
+        data.results.map((item: any) => ({
+          id: item.document.no,
+          judul: item.document.judul,
+          deskripsi: item.document.deskripsi,
+          gambar: item.document.gambar,
+          kategori: item.document.kategori,
+          asal_daerah: item.document.asal_daerah,
+          cara_main: item.document.cara_main,
+          score_tfidf: item.tfidf_score,
+          score_jaccard: item.jaccard_score,
+        }))
+      );
+
       setHasSearched(true);
-      setIsSearching(false);
-      setActiveAlgoTab("all");
-    }, 800);
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+
+    setIsSearching(false);
+  };
+
+  // Logic Pagination
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
+  const currentResults = results.slice(
+    pageIndex * ITEMS_PER_PAGE,
+    (pageIndex + 1) * ITEMS_PER_PAGE
+  );
+
+  const nextPage = () => {
+    if (pageIndex < totalPages - 1) setPageIndex((prev) => prev + 1);
+  };
+
+  const prevPage = () => {
+    if (pageIndex > 0) setPageIndex((prev) => prev - 1);
+  };
+
+  const handleCardClick = (item: SearchResult) => {
+    navigate(`/detail/${item.id}`, { state: item });
   };
 
   return (
@@ -43,7 +125,7 @@ const SearchSection: React.FC = () => {
       id="search"
       className="min-h-screen bg-swarna-primary relative overflow-hidden flex flex-col"
     >
-      {/* --- BACKGROUND PATTERN --- */}
+      {/* Background Pattern */}
       <div
         className="absolute inset-0 pointer-events-none mix-blend-overlay animate-move-batik"
         style={{
@@ -53,8 +135,8 @@ const SearchSection: React.FC = () => {
         }}
       ></div>
 
-      {/* --- KONTEN UTAMA --- */}
-      <div className="container mx-auto px-6 max-w-6xl relative z-10 flex-grow pt-28">
+      <div className="container mx-auto px-6 max-w-7xl relative z-10 flex-grow pt-28">
+        {/* Header */}
         <div
           className={`text-center transition-all duration-700 ${
             hasSearched ? "mb-6" : "mb-10"
@@ -78,7 +160,7 @@ const SearchSection: React.FC = () => {
           </p>
         </div>
 
-        {/* --- SEARCH BOX AREA --- */}
+        {/* Search Box */}
         <div
           className={`bg-swarna-light/10 backdrop-blur-md border border-swarna-light/30 p-1.5 rounded-[1.5rem] shadow-xl transition-all duration-500 mx-auto ${
             hasSearched ? "max-w-2xl" : "max-w-2xl"
@@ -91,14 +173,12 @@ const SearchSection: React.FC = () => {
               </div>
               <input
                 type="text"
-                placeholder="Cari budaya... (misal: Tari Kecak, Batik)"
+                placeholder="Cari budaya... (misal: Adok, Bedaya, Batik)"
                 className="w-full pl-12 pr-4 h-8 md:h-10 rounded-[1.2rem] bg-swarna-light text-swarna-dark text-base font-medium shadow-inner focus:outline-none focus:ring-4 focus:ring-swarna-gold/30 transition-all placeholder:text-swarna-dark/40"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-
-            {/* Search Button */}
             <button
               type="submit"
               disabled={isSearching}
@@ -109,7 +189,7 @@ const SearchSection: React.FC = () => {
           </form>
         </div>
 
-        {/* --- LOADING INDICATOR --- */}
+        {/* Loading */}
         {isSearching && (
           <div className="mt-12 text-center">
             <div className="inline-block w-8 h-8 border-4 border-swarna-gold border-t-transparent rounded-full animate-spin"></div>
@@ -119,10 +199,10 @@ const SearchSection: React.FC = () => {
           </div>
         )}
 
-        {/* --- HASIL PENCARIAN & TABS --- */}
+        {/* Hasil Pencarian */}
         {hasSearched && !isSearching && (
           <div className="mt-10 animate-fade-in-up pb-20">
-            {/* TABS ALGORITMA */}
+            {/* Tabs Algoritma */}
             <div className="flex justify-center mb-8">
               <div className="inline-flex bg-black/20 backdrop-blur-sm p-1 rounded-full border border-white/10 shadow-inner">
                 {algoTabs.map((tab) => (
@@ -146,52 +226,74 @@ const SearchSection: React.FC = () => {
               </div>
             </div>
 
-            {/* INFO HASIL */}
             {results.length === 0 ? (
               <div className="text-center py-8 bg-black/10 rounded-2xl border border-white/5">
                 <p className="text-swarna-light/60 text-base">
-                  Tidak ada hasil ditemukan.
+                  Tidak ada hasil ditemukan untuk "{query}".
                 </p>
               </div>
             ) : (
               <>
-                <p className="text-swarna-light/60 text-center mb-6 text-sm">
-                  Menampilkan{" "}
-                  <span className="text-swarna-gold font-bold">
-                    {results.length}
-                  </span>{" "}
-                  hasil
-                </p>
+                <div className="flex items-center justify-between mb-6 px-2">
+                  <p className="text-swarna-light/60 text-sm">
+                    Menampilkan{" "}
+                    <span className="text-swarna-gold font-bold">
+                      {results.length}
+                    </span>{" "}
+                    hasil
+                  </p>
 
-                {/* GRID HASIL */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {results.map((item, index) => (
+                  <div className="flex items-center gap-3">
+                    <span className="text-swarna-light/50 text-xs uppercase tracking-widest mr-2 hidden sm:inline-block">
+                      Hal {pageIndex + 1} / {totalPages}
+                    </span>
+                    <button
+                      onClick={prevPage}
+                      disabled={pageIndex === 0}
+                      className="p-2 rounded-full bg-swarna-light/10 hover:bg-swarna-gold hover:text-swarna-dark text-swarna-light disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={nextPage}
+                      disabled={pageIndex === totalPages - 1}
+                      className="p-2 rounded-full bg-swarna-light/10 hover:bg-swarna-gold hover:text-swarna-dark text-swarna-light disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {currentResults.map((item, index) => (
                     <div
                       key={item.id}
-                      className="bg-swarna-light rounded-2xl overflow-hidden shadow-lg hover:shadow-xl hover:shadow-swarna-gold/20 transition-all duration-500 hover:-translate-y-1 group flex flex-col h-full border border-swarna-light/50"
+                      onClick={() => handleCardClick(item)}
+                      className="bg-swarna-light rounded-2xl overflow-hidden shadow-lg hover:shadow-xl hover:shadow-swarna-gold/20 transition-all duration-300 hover:-translate-y-2 group flex flex-col h-full border border-swarna-light/50 cursor-pointer"
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="aspect-video w-full overflow-hidden relative bg-gray-100">
                         <img
-                          src={item.image}
-                          alt={item.title}
+                          src={item.gambar || item.image} // Support format baru & lama
+                          alt={item.judul || item.title}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
                         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-[10px] font-bold text-swarna-primary uppercase tracking-wider shadow-sm">
-                          {item.category.replace("_", " ")}
+                          {(item.kategori || item.category || "").replace(
+                            /_/g,
+                            " "
+                          )}
                         </div>
                       </div>
 
-                      {/* Content Area */}
                       <div className="p-5 flex flex-col flex-grow">
-                        <h3 className="font-serif text-xl font-bold text-swarna-dark mb-2 group-hover:text-swarna-primary transition-colors">
-                          {item.title}
+                        <h3 className="font-serif text-lg font-bold text-swarna-dark mb-2 group-hover:text-swarna-primary transition-colors line-clamp-1">
+                          {item.judul || item.title}
                         </h3>
                         <p className="text-sm text-gray-600 mb-4 line-clamp-3 leading-relaxed flex-grow">
-                          {item.snippet}
+                          {item.deskripsi || item.snippet}
                         </p>
 
-                        {/* Score Visualization */}
                         <div className="bg-swarna-primary/5 rounded-xl p-3 space-y-2 mt-auto">
                           {(activeAlgoTab === "all" ||
                             activeAlgoTab === "tfidf") && (
