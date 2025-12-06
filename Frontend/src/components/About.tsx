@@ -57,18 +57,38 @@ const About: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Animasi Pintu
+  // --- PERBAIKAN LOGIKA ANIMASI PINTU ---
   useEffect(() => {
+    // Array untuk menyimpan ID timeout supaya bisa dibersihkan
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
     const sequence = () => {
-      setTimeout(() => setIsDoorOpen(true), 500); // Buka
-      setTimeout(() => setIsDoorOpen(false), 4500); // Tutup
-      setTimeout(() => {
-        setMemberIndex((prev) => (prev + 1) % teamMembers.length); // Ganti Orang
+      // 1. Buka Pintu
+      const t1 = setTimeout(() => setIsDoorOpen(true), 500);
+
+      // 2. Tutup Pintu
+      const t2 = setTimeout(() => setIsDoorOpen(false), 4500);
+
+      // 3. Ganti Orang (Hanya sekali per siklus)
+      const t3 = setTimeout(() => {
+        setMemberIndex((prev) => (prev + 1) % teamMembers.length);
       }, 5500);
+
+      // Simpan ID ke array
+      timeouts.push(t1, t2, t3);
     };
+
+    // Jalankan pertama kali
     sequence();
+
+    // Ulangi setiap 6 detik
     const loop = setInterval(sequence, 6000);
-    return () => clearInterval(loop);
+
+    // CLEANUP FUNCTION (PENTING AGAR TIDAK SKIP/DOUBLE)
+    return () => {
+      clearInterval(loop);
+      timeouts.forEach((t) => clearTimeout(t)); // Hapus semua timeout yg pending
+    };
   }, []);
 
   const nextSlide = () =>
@@ -171,6 +191,7 @@ const About: React.FC = () => {
             <div className="relative w-[400px] h-full flex items-end justify-center overflow-visible">
               {/* LORONG GELAP */}
               <div className="absolute inset-x-10 bottom-10 top-2 bg-gradient-to-t from-black via-[#2C1E16] to-transparent rounded-t-[200px] opacity-50 blur-md z-0"></div>
+
               {teamMembers.map((member, idx) => (
                 <div
                   key={member.id}
@@ -187,17 +208,24 @@ const About: React.FC = () => {
                  [mask-image:linear-gradient(to_bottom,white_75%,transparent_100%)]"
                   />
 
+                  {/* Name Tag */}
                   <div
-                    className={`absolute bottom-0 bg-swarna-dark/80 backdrop-blur-md border border-swarna-gold/30 px-5 py-4 rounded-full text-center shadow-4xl transform transition-all duration-1000 ${
-                      isDoorOpen
-                        ? "translate-y-0 opacity-100"
-                        : "translate-y-8 opacity-0"
-                    }`}
+                    className={`
+                      absolute bottom-0 
+                      bg-swarna-dark/80 backdrop-blur-md border border-swarna-gold/30 
+                      px-10 py-4 rounded-full text-center shadow-4xl 
+                      transform transition-all duration-1000
+                      whitespace-nowrap min-w-max
+                      ${
+                        isDoorOpen
+                          ? "translate-y-0 opacity-100"
+                          : "translate-y-8 opacity-0"
+                      }`}
                   >
-                    <h4 className="font-bold text-swarna-gold text-md leading-none mb-0.5">
+                    <h4 className="font-bold text-swarna-gold text-md leading-none mb-1">
                       {member.name}
                     </h4>
-                    <span className="text-[10px] text-swarna-light/70 uppercase tracking-widest">
+                    <span className="text-[10px] text-swarna-light/70 uppercase tracking-widest block">
                       {member.role}
                     </span>
                   </div>
@@ -205,8 +233,6 @@ const About: React.FC = () => {
               ))}
 
               {/* --- PINTU KIRI --- */}
-              {/* w-[51%] : Biar pas tutup dia rapat (overlap 1% aja di tengah) */}
-              {/* translate-x-[90%] : Biar bukanya LEBAR banget hampir hilang */}
               <img
                 src="/pintu-kiri.png"
                 alt="Pintu Kiri"

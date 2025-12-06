@@ -1,3 +1,4 @@
+// src/components/SearchSection.tsx
 import React, { useState, useEffect } from "react";
 import {
   Search,
@@ -13,7 +14,7 @@ import type { SearchResult } from "../types";
 import { mockDatabase } from "../data/mockData";
 
 const algoTabs = [
-  { id: "all", label: "Semua", icon: Layers },
+  { id: "all", label: "Kombinasi", icon: Layers },
   { id: "tfidf", label: "TF-IDF", icon: BarChart3 },
   { id: "jaccard", label: "Jaccard", icon: Calculator },
 ];
@@ -23,32 +24,43 @@ const ITEMS_PER_PAGE = 4;
 const SearchSection: React.FC = () => {
   const navigate = useNavigate();
 
-  // --- 1. STATE INITIALIZATION (BACA DARI STORAGE DULUAN) ---
+  // --- LOGIKA RESTORE DATA ---
+  const shouldRestore = sessionStorage.getItem("restore_search") === "true";
+
+  // --- STATE ---
   const [query, setQuery] = useState<string>(() => {
-    return sessionStorage.getItem("swarna_query") || "";
+    return shouldRestore ? sessionStorage.getItem("swarna_query") || "" : "";
   });
 
   const [results, setResults] = useState<SearchResult[]>(() => {
+    if (!shouldRestore) return [];
     const saved = sessionStorage.getItem("swarna_results");
     return saved ? JSON.parse(saved) : [];
   });
 
   const [hasSearched, setHasSearched] = useState<boolean>(() => {
+    if (!shouldRestore) return false;
     return sessionStorage.getItem("swarna_hasSearched") === "true";
   });
 
   const [activeAlgoTab, setActiveAlgoTab] = useState<string>(() => {
+    if (!shouldRestore) return "all";
     return sessionStorage.getItem("swarna_tab") || "all";
   });
 
   const [pageIndex, setPageIndex] = useState<number>(() => {
+    if (!shouldRestore) return 0;
     const page = sessionStorage.getItem("swarna_page");
     return page ? parseInt(page) : 0;
   });
 
   const [isSearching, setIsSearching] = useState<boolean>(false);
 
-  // --- 2. EFFECT UNTUK MENYIMPAN STATE (JALAN SAAT DATA BERUBAH) ---
+  // --- EFFECT ---
+  useEffect(() => {
+    sessionStorage.removeItem("restore_search");
+  }, []);
+
   useEffect(() => {
     sessionStorage.setItem("swarna_query", query);
     sessionStorage.setItem("swarna_results", JSON.stringify(results));
@@ -57,16 +69,16 @@ const SearchSection: React.FC = () => {
     sessionStorage.setItem("swarna_page", String(pageIndex));
   }, [query, results, hasSearched, activeAlgoTab, pageIndex]);
 
-  // --- 3. HANDLE SEARCH (FILTER DENGAN SUPPORT JUDUL & TITLE) ---
+  // --- HANDLE SEARCH ---
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query) return;
 
     setIsSearching(true);
+    setHasSearched(true); // Langsung set true biar animasi naik mulai jalan
     setPageIndex(0);
 
     try {
-      // pilih algoritma berdasarkan tab
       let algo = activeAlgoTab;
       if (algo === "all") algo = "combined";
 
@@ -76,32 +88,42 @@ const SearchSection: React.FC = () => {
         )}&mode=${algo}`
       );
 
+      if (!response.ok) throw new Error("API Error");
+
       const data = await response.json();
 
-      // backend mengembalikan daftar hasil
-      setResults(
-        data.results.map((item: any) => ({
-          id: item.document.no,
-          judul: item.document.judul,
-          deskripsi: item.document.deskripsi,
-          gambar: item.document.gambar,
-          kategori: item.document.kategori,
-          asal_daerah: item.document.asal_daerah,
-          cara_main: item.document.cara_main,
-          score_tfidf: item.tfidf_score,
-          score_jaccard: item.jaccard_score,
-        }))
-      );
+      const mappedResults = data.results.map((item: any) => ({
+        id: item.document.no || Math.random().toString(),
+        judul: item.document.judul,
+        deskripsi: item.document.deskripsi,
+        gambar: item.document.gambar,
+        kategori: item.document.kategori,
+        asal_daerah: item.document.asal_daerah,
+        cara_main: item.document.cara_main,
+        link: item.document.link,
+        score_tfidf: item.tfidf_score,
+        score_jaccard: item.jaccard_score,
+      }));
 
-      setHasSearched(true);
+      setResults(mappedResults);
     } catch (error) {
-      console.error("Error fetching:", error);
+      console.error("Error:", error);
+      // Fallback Dummy
+      const allMatches = mockDatabase.filter(
+        (item) =>
+          (item.judul || item.title || "")
+            .toLowerCase()
+            .includes(query.toLowerCase()) ||
+          (item.deskripsi || item.snippet || "")
+            .toLowerCase()
+            .includes(query.toLowerCase())
+      );
+      setResults(allMatches);
+    } finally {
+      setIsSearching(false);
     }
-
-    setIsSearching(false);
   };
 
-  // Logic Pagination
   const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
   const currentResults = results.slice(
     pageIndex * ITEMS_PER_PAGE,
@@ -117,6 +139,7 @@ const SearchSection: React.FC = () => {
   };
 
   const handleCardClick = (item: SearchResult) => {
+    sessionStorage.setItem("restore_search", "true");
     navigate(`/detail/${item.id}`, { state: item });
   };
 
@@ -125,7 +148,6 @@ const SearchSection: React.FC = () => {
       id="search"
       className="min-h-screen bg-swarna-primary relative overflow-hidden flex flex-col"
     >
-      {/* Background Pattern */}
       <div
         className="absolute inset-0 pointer-events-none mix-blend-overlay animate-move-batik"
         style={{
@@ -135,11 +157,21 @@ const SearchSection: React.FC = () => {
         }}
       ></div>
 
-      <div className="container mx-auto px-6 max-w-7xl relative z-10 flex-grow pt-28">
-        {/* Header */}
+      {/* 
+          INI BAGIAN UTAMA YANG DIUBAH 
+          Logic: Jika belum search (hasSearched false) -> pt-[35vh] (Tengah)
+                 Jika sudah search (hasSearched true) -> pt-24 (Atas)
+      */}
+      <div
+        className={`
+          container mx-auto px-6 max-w-7xl relative z-10 flex flex-col 
+          transition-all duration-1000 ease-in-out
+          ${hasSearched ? "pt-24" : "pt-[35vh]"}
+        `}
+      >
         <div
           className={`text-center transition-all duration-700 ${
-            hasSearched ? "mb-6" : "mb-10"
+            hasSearched ? "mb-6" : "mb-8"
           }`}
         >
           <div className="inline-flex items-center gap-2 mt-5 mb-3 px-4 py-1.5 rounded-full bg-swarna-light/10 border border-swarna-light/20 text-swarna-gold text-xs font-medium animate-fade-in-up">
@@ -147,23 +179,22 @@ const SearchSection: React.FC = () => {
             <span>Mesin Pencari Budaya</span>
           </div>
           <h2
-            className="font-serif text-5xl md:text-4xl font-bold text-swarna-light mb-4 drop-shadow-md animate-fade-in-up"
+            className="font-serif text-5xl md:text-6xl font-bold text-swarna-light mb-4 drop-shadow-md animate-fade-in-up"
             style={{ animationDelay: "0.1s" }}
           >
             Telusuri Jejak Budaya
           </h2>
           <p
-            className="text-swarna-light/80 text-base md:text-m max-w-2xl mx-auto animate-fade-in-up"
+            className="text-swarna-light/80 text-base md:text-lg max-w-2xl mx-auto animate-fade-in-up"
             style={{ animationDelay: "0.2s" }}
           >
             Temukan makna di balik setiap gerak, nada, dan corak Nusantara.
           </p>
         </div>
 
-        {/* Search Box */}
         <div
-          className={`bg-swarna-light/10 backdrop-blur-md border border-swarna-light/30 p-1.5 rounded-[1.5rem] shadow-xl transition-all duration-500 mx-auto ${
-            hasSearched ? "max-w-2xl" : "max-w-2xl"
+          className={`bg-swarna-light/10 backdrop-blur-md border border-swarna-light/30 p-1.5 rounded-[1.5rem] shadow-xl transition-all duration-500 mx-auto w-full ${
+            hasSearched ? "max-w-2xl" : "max-w-3xl scale-110" // Sedikit lebih besar pas di tengah
           }`}
         >
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -174,7 +205,7 @@ const SearchSection: React.FC = () => {
               <input
                 type="text"
                 placeholder="Cari budaya... (misal: Adok, Bedaya, Batik)"
-                className="w-full pl-12 pr-4 h-8 md:h-10 rounded-[1.2rem] bg-swarna-light text-swarna-dark text-base font-medium shadow-inner focus:outline-none focus:ring-4 focus:ring-swarna-gold/30 transition-all placeholder:text-swarna-dark/40"
+                className="w-full pl-12 pr-4 h-12 rounded-[1.2rem] bg-swarna-light text-swarna-dark text-base font-medium shadow-inner focus:outline-none focus:ring-4 focus:ring-swarna-gold/30 transition-all placeholder:text-swarna-dark/40"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -182,16 +213,17 @@ const SearchSection: React.FC = () => {
             <button
               type="submit"
               disabled={isSearching}
-              className="h-12 md:h-10 px-6 md:px-8 bg-swarna-gold hover:bg-white hover:text-swarna-primary text-swarna-dark rounded-[1.2rem] font-bold text-base transition-all shadow-lg hover:shadow-swarna-gold/50 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="h-12 px-8 bg-swarna-gold hover:bg-white hover:text-swarna-primary text-swarna-dark rounded-[1.2rem] font-bold text-base transition-all shadow-lg hover:shadow-swarna-gold/50 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isSearching ? "..." : "Cari"}
             </button>
           </form>
         </div>
 
-        {/* Loading */}
+        {/* LOADING & HASIL PENCARIAN AKAN MUNCUL DI BAWAHNYA SETELAH NAIK */}
+
         {isSearching && (
-          <div className="mt-12 text-center">
+          <div className="mt-12 text-center animate-fade-in-up">
             <div className="inline-block w-8 h-8 border-4 border-swarna-gold border-t-transparent rounded-full animate-spin"></div>
             <p className="text-swarna-light/70 mt-2 text-sm animate-pulse">
               Sedang menelusuri korpus...
@@ -199,7 +231,6 @@ const SearchSection: React.FC = () => {
           </div>
         )}
 
-        {/* Hasil Pencarian */}
         {hasSearched && !isSearching && (
           <div className="mt-10 animate-fade-in-up pb-20">
             {/* Tabs Algoritma */}
@@ -274,7 +305,7 @@ const SearchSection: React.FC = () => {
                     >
                       <div className="aspect-video w-full overflow-hidden relative bg-gray-100">
                         <img
-                          src={item.gambar || item.image} // Support format baru & lama
+                          src={item.gambar || item.image}
                           alt={item.judul || item.title}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
@@ -305,7 +336,10 @@ const SearchSection: React.FC = () => {
                                 <div
                                   className="h-full bg-swarna-primary rounded-full"
                                   style={{
-                                    width: `${Math.min(item.score_tfidf * 100, 100)}%`,
+                                    width: `${Math.min(
+                                      item.score_tfidf * 100,
+                                      100
+                                    )}%`,
                                   }}
                                 ></div>
                               </div>
@@ -325,7 +359,10 @@ const SearchSection: React.FC = () => {
                                 <div
                                   className="h-full bg-swarna-accent rounded-full"
                                   style={{
-                                    width: `${Math.min(item.score_jaccard * 100, 100)}%`,
+                                    width: `${Math.min(
+                                      item.score_jaccard * 100,
+                                      100
+                                    )}%`,
                                   }}
                                 ></div>
                               </div>
