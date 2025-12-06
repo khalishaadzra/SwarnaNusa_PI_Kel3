@@ -1,6 +1,6 @@
 import time
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional
 from search_engine import search_tfidf, search_jaccard, search_hybrid, preprocess_query
 import json
 
@@ -37,7 +37,7 @@ def precision_recall_f1(relevant:set, retrieved:List[int]):
     return precision, recall, f1
 
 # main evaluate function
-def evaluate(query: str, top_k: int = 10):
+def evaluate(query: str, top_k: Optional[int] = None):
     # load docs to compute relevant set (read preprocessed file)
     import json, pathlib
     BASE = pathlib.Path(__file__).resolve().parent
