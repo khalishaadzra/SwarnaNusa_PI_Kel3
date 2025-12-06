@@ -11,6 +11,7 @@ python search_engine.py
 python evaluation.py
 
 # Jalankan FastAPI
+python app.py
 uvicorn app:app --reload
 
 # Test API (ada dua cara yg bisa dipake)

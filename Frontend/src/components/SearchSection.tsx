@@ -305,12 +305,12 @@ const SearchSection: React.FC = () => {
                                 <div
                                   className="h-full bg-swarna-primary rounded-full"
                                   style={{
-                                    width: `${item.score_tfidf * 100}%`,
+                                    width: `${Math.min(item.score_tfidf * 100, 100)}%`,
                                   }}
                                 ></div>
                               </div>
                               <span className="text-[10px] font-mono text-swarna-primary font-bold">
-                                {item.score_tfidf}
+                                {Math.round(item.score_tfidf * 100)}%
                               </span>
                             </div>
                           )}
@@ -325,12 +325,12 @@ const SearchSection: React.FC = () => {
                                 <div
                                   className="h-full bg-swarna-accent rounded-full"
                                   style={{
-                                    width: `${item.score_jaccard * 100}%`,
+                                    width: `${Math.min(item.score_jaccard * 100, 100)}%`,
                                   }}
                                 ></div>
                               </div>
                               <span className="text-[10px] font-mono text-swarna-accent font-bold">
-                                {item.score_jaccard}
+                                {Math.round(item.score_jaccard * 100)}%
                               </span>
                             </div>
                           )}
