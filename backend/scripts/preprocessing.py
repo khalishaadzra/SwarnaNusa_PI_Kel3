@@ -98,8 +98,7 @@ def build_text_column(df):
     df["teks"] = (
         df["judul"].astype(str) + " " +
         df["deskripsi"].astype(str) + " " +
-        df["asal_daerah"].astype(str) + " " +
-        df["cara_main"].astype(str)
+        df["asal_daerah"].astype(str)
     )
     return df
 
