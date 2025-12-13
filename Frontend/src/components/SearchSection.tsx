@@ -99,23 +99,21 @@ const SearchSection: React.FC = () => {
     sessionStorage.setItem("swarna_page", String(pageIndex));
   }, [query, results, hasSearched, activeAlgoTab, pageIndex]);
 
-  // --- HANDLE SEARCH ---
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query) return;
+  // --- CORE SEARCH LOGIC (DIPISAH SUPAYA BISA DIPANGGIL TAB) ---
+  const executeSearch = async (searchQuery: string, algoMode: string) => {
+    if (!searchQuery) return;
 
     setIsSearching(true);
-    setHasSearched(true);
     setPageIndex(0);
 
     try {
-      let algo = activeAlgoTab;
-      if (algo === "all") algo = "combined";
+      let modeParam = algoMode;
+      if (modeParam === "all") modeParam = "combined";
 
       const response = await fetch(
         `http://127.0.0.1:8000/search?q=${encodeURIComponent(
-          query
-        )}&mode=${algo}`
+          searchQuery
+        )}&mode=${modeParam}`
       );
 
       const data = await response.json();
@@ -134,32 +132,46 @@ const SearchSection: React.FC = () => {
       }));
 
       setResults(mappedResults);
+      setHasSearched(true);
     } catch (error) {
       console.error("Error fetching:", error);
-      // Fallback Mock
+      // Fallback
       const allMatches = mockDatabase.filter(
         (item) =>
           (item.judul || item.title || "")
             .toLowerCase()
-            .includes(query.toLowerCase()) ||
+            .includes(searchQuery.toLowerCase()) ||
           (item.deskripsi || item.snippet || "")
             .toLowerCase()
-            .includes(query.toLowerCase())
+            .includes(searchQuery.toLowerCase())
       );
       setResults(allMatches);
+      setHasSearched(true);
     } finally {
       setIsSearching(false);
     }
   };
 
-  // --- HANDLE EVALUATE ---
+  // --- EVENT HANDLERS ---
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSearch(query, activeAlgoTab);
+  };
+
+  const handleTabClick = (tabId: string) => {
+    setActiveAlgoTab(tabId);
+    // Jika sudah ada query, langsung search ulang agar urutan data berubah
+    if (query) {
+      executeSearch(query, tabId);
+    }
+  };
+
   const handleEvaluate = async () => {
     if (!query) return;
     setShowEvalModal(true);
     setIsEvalLoading(true);
 
     try {
-      // Tidak pakai top_k agar mengevaluasi semua hasil
       const response = await fetch(
         `http://127.0.0.1:8000/evaluate?q=${encodeURIComponent(query)}`
       );
@@ -172,6 +184,7 @@ const SearchSection: React.FC = () => {
     }
   };
 
+  // Logic Pagination
   const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
   const currentResults = results.slice(
     pageIndex * ITEMS_PER_PAGE,
@@ -236,7 +249,7 @@ const SearchSection: React.FC = () => {
             hasSearched ? "max-w-2xl" : "max-w-2xl"
           }`}
         >
-          <form onSubmit={handleSearch} className="flex gap-2">
+          <form onSubmit={handleFormSubmit} className="flex gap-2">
             <div className="relative flex-grow group">
               <div className="absolute left-5 top-1/2 -translate-y-1/2 text-swarna-dark/50 group-focus-within:text-swarna-primary transition-colors">
                 <Search className="w-5 h-5" />
@@ -274,11 +287,12 @@ const SearchSection: React.FC = () => {
           <div className="mt-10 animate-fade-in-up pb-20">
             {/* Controls */}
             <div className="flex justify-center items-center gap-4 mb-8">
+              {/* TABS ALGORITMA: KLIK MEMICU SEARCH ULANG */}
               <div className="inline-flex bg-black/20 backdrop-blur-sm p-1 rounded-full border border-white/10 shadow-inner">
                 {algoTabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveAlgoTab(tab.id)}
+                    onClick={() => handleTabClick(tab.id)}
                     className={`relative px-5 py-2 rounded-full text-xs md:text-sm font-bold transition-all duration-300 flex items-center gap-2 ${
                       activeAlgoTab === tab.id
                         ? "bg-swarna-light text-swarna-dark shadow-md scale-105"
@@ -308,7 +322,7 @@ const SearchSection: React.FC = () => {
             {results.length === 0 ? (
               <div className="text-center py-8 bg-black/10 rounded-2xl border border-white/5">
                 <p className="text-swarna-light/60 text-base">
-                  Tidak ada hasil ditemukan.
+                  Tidak ada hasil ditemukan untuk "{query}".
                 </p>
               </div>
             ) : (
@@ -374,44 +388,51 @@ const SearchSection: React.FC = () => {
                         </p>
 
                         <div className="bg-swarna-primary/5 rounded-xl p-3 space-y-2 mt-auto">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-swarna-dark/50 w-10">
-                              TF-IDF
-                            </span>
-                            <div className="flex-grow h-1.5 bg-swarna-dark/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-swarna-primary rounded-full"
-                                style={{
-                                  width: `${Math.min(
-                                    item.score_tfidf * 100,
-                                    100
-                                  )}%`,
-                                }}
-                              ></div>
+                          {(activeAlgoTab === "all" ||
+                            activeAlgoTab === "tfidf") && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-swarna-dark/50 w-10">
+                                TF-IDF
+                              </span>
+                              <div className="flex-grow h-1.5 bg-swarna-dark/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-swarna-primary rounded-full"
+                                  style={{
+                                    width: `${Math.min(
+                                      item.score_tfidf * 100,
+                                      100
+                                    )}%`,
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-[10px] font-mono text-swarna-primary font-bold">
+                                {Math.round(item.score_tfidf * 100)}%
+                              </span>
                             </div>
-                            <span className="text-[10px] font-mono text-swarna-primary font-bold">
-                              {Math.round(item.score_tfidf * 100)}%
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-swarna-dark/50 w-10">
-                              Jaccard
-                            </span>
-                            <div className="flex-grow h-1.5 bg-swarna-dark/10 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-swarna-accent rounded-full"
-                                style={{
-                                  width: `${Math.min(
-                                    item.score_jaccard * 100,
-                                    100
-                                  )}%`,
-                                }}
-                              ></div>
+                          )}
+
+                          {(activeAlgoTab === "all" ||
+                            activeAlgoTab === "jaccard") && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-swarna-dark/50 w-10">
+                                Jaccard
+                              </span>
+                              <div className="flex-grow h-1.5 bg-swarna-dark/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-swarna-accent rounded-full"
+                                  style={{
+                                    width: `${Math.min(
+                                      item.score_jaccard * 100,
+                                      100
+                                    )}%`,
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-[10px] font-mono text-swarna-accent font-bold">
+                                {Math.round(item.score_jaccard * 100)}%
+                              </span>
                             </div>
-                            <span className="text-[10px] font-mono text-swarna-accent font-bold">
-                              {Math.round(item.score_jaccard * 100)}%
-                            </span>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -423,13 +444,11 @@ const SearchSection: React.FC = () => {
         )}
       </div>
 
-      {/* --- POPUP MODAL EVALUASI --- */}
+      {/* --- POPUP MODAL EVALUASI (Warna Transparan & 8 Digit) --- */}
       {showEvalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in-up">
-          {/* UBAH DISINI: Ganti bg-[#2C1E16] jadi bg-swarna-dark/95 atau bg-swarna-primary/95 */}
           <div className="bg-swarna-dark/95 backdrop-blur-xl border border-swarna-gold/30 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Header Modal */}
-            {/* UBAH DISINI: Ganti bg-[#2C1E16] jadi bg-black/10 (transparan gelap halus) */}
             <div className="flex justify-between items-center p-6 border-b border-swarna-gold/20 bg-black/10">
               <div className="flex items-center gap-3">
                 <Activity className="w-6 h-6 text-swarna-gold" />
@@ -455,7 +474,6 @@ const SearchSection: React.FC = () => {
               ) : evalData ? (
                 <div className="space-y-8">
                   {/* Info Query */}
-                  {/* UBAH DISINI: Background info bar dibuat lebih transparan */}
                   <div className="flex items-center justify-between text-sm text-swarna-light/70 bg-black/20 p-4 rounded-xl border border-swarna-gold/20">
                     <span>
                       Query:{" "}
@@ -463,6 +481,7 @@ const SearchSection: React.FC = () => {
                         "{evalData.query}"
                       </strong>
                     </span>
+                    {/* Relevant Docs Dihapus */}
                   </div>
 
                   {/* Metrics Grid */}
@@ -501,7 +520,7 @@ const SearchSection: React.FC = () => {
   );
 };
 
-// Komponen Kartu Evaluasi
+// Komponen Kartu Evaluasi (8 Digit Desimal)
 const EvalCard = ({
   title,
   data,
