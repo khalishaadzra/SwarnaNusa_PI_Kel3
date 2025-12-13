@@ -33,7 +33,7 @@ const teamMembers = [
   {
     id: 2,
     name: "Firah Maulida",
-    role: "Data Scrapper & Documentation",
+    role: "Data Collection & Documentation",
     image: "/team2.png",
   },
   {

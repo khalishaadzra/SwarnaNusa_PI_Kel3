@@ -91,7 +91,7 @@ def search_full(query, mode="combined", top_k=None):
         tfidf_score = float(tfidf_scores[i])
 
         # combined score
-        combined_score = 0.7 * tfidf_score + 0.3 * jaccard_score
+        combined_score = 0.5 * tfidf_score + 0.5 * jaccard_score
 
         # Apply minimum threshold to filter out low-relevance docs
         if combined_score >= 0.05:
