@@ -17,6 +17,8 @@ import { useNavigate } from "react-router-dom";
 import type { SearchResult } from "../types";
 import { mockDatabase } from "../data/mockData";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const algoTabs = [
   { id: "all", label: "Semua", icon: Layers },
   { id: "tfidf", label: "TF-IDF", icon: BarChart3 },
@@ -111,7 +113,7 @@ const SearchSection: React.FC = () => {
       if (modeParam === "all") modeParam = "combined";
 
       const response = await fetch(
-        `http://127.0.0.1:8000/search?q=${encodeURIComponent(
+        `${API_BASE_URL}/search?q=${encodeURIComponent(
           searchQuery
         )}&mode=${modeParam}`
       );
@@ -173,7 +175,7 @@ const SearchSection: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/evaluate?q=${encodeURIComponent(query)}`
+        `${API_BASE_URL}/evaluate?q=${encodeURIComponent(query)}`
       );
       const data = await response.json();
       setEvalData(data);
