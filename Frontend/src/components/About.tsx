@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 // --- DATA DUMMY ---
 const culturalHighlights = [
@@ -90,13 +90,6 @@ const About: React.FC = () => {
       timeouts.forEach((t) => clearTimeout(t)); // Hapus semua timeout yg pending
     };
   }, []);
-
-  const nextSlide = () =>
-    setCurrentSlide((p) => (p + 1) % culturalHighlights.length);
-  const prevSlide = () =>
-    setCurrentSlide(
-      (p) => (p - 1 + culturalHighlights.length) % culturalHighlights.length
-    );
 
   return (
     <section
