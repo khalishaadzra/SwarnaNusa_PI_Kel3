@@ -84,10 +84,10 @@ const About: React.FC = () => {
     // Ulangi setiap 6 detik
     const loop = setInterval(sequence, 6000);
 
-    // CLEANUP FUNCTION (PENTING AGAR TIDAK SKIP/DOUBLE)
+    // CLEANUP FUNCTION 
     return () => {
       clearInterval(loop);
-      timeouts.forEach((t) => clearTimeout(t)); // Hapus semua timeout yg pending
+      timeouts.forEach((t) => clearTimeout(t)); 
     };
   }, []);
 
@@ -126,7 +126,7 @@ const About: React.FC = () => {
                 musik, dan pakaian adat Nusantara. Ini bukan sekadar mesin
                 pencari, melainkan sebuah upaya digital untuk menjaga identitas
                 bangsa agar tak lekang oleh waktu dan tetap relevan bagi
-                generasi mendatang.
+                generasi yang mendatang.
               </p>
             </div>
 
